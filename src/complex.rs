@@ -32,6 +32,32 @@ impl<T> Complex<T> {
     {
         self.re * self.re + self.im * self.im
     }
+
+    pub fn conj(&self) -> Complex<T>
+    where
+        T: Copy + std::ops::Neg<Output = T>,
+    {
+        Complex {
+            re: self.re,
+            im: -self.im,
+        }
+    }
+}
+
+impl Complex<f64> {
+    const I: Complex<f64> = Complex { re: 0.0, im: 1.0 };
+
+    pub fn exp(&self) -> Self {
+        let exp_re = self.re.exp();
+        Self {
+            re: exp_re * self.im.cos(),
+            im: exp_re * self.im.sin(),
+        }
+    }
+
+    pub fn cos(&self) -> Self {
+        (Self::I * *self).exp() + (-Self::I * *self).exp() / 2.0
+    }
 }
 
 pub mod op {
@@ -116,6 +142,16 @@ pub mod op {
             Complex {
                 re: (self.re * rhs.re + self.im * rhs.im) / norm,
                 im: (self.im * rhs.re - self.re * rhs.im) / norm,
+            }
+        }
+    }
+
+    impl<T: Neg<Output = T>> Neg for Complex<T> {
+        type Output = Complex<T>;
+        fn neg(self) -> Complex<T> {
+            Complex {
+                re: -self.re,
+                im: -self.im,
             }
         }
     }

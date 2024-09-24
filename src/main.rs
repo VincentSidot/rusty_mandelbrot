@@ -12,14 +12,29 @@ use mandelbrot::{MandelbrotUniverse, PixelColor};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const MAX_ITER: u32 = 256;
+const MAX_ITER: u32 = 1024;
 
 const COLORS: &[PixelColor] = &[
-    PixelColor::WHITE,
-    PixelColor::BLACK,
-    PixelColor::GREEN,
-    PixelColor::BLUE,
+    PixelColor::MAGENTA,
+    PixelColor::CYAN,
     PixelColor::YELLOW,
+    PixelColor::MAGENTA,
+    PixelColor::CYAN,
+    PixelColor::MAGENTA,
+    PixelColor::YELLOW,
+    PixelColor::CYAN,
+    PixelColor::MAGENTA,
+    PixelColor::YELLOW,
+    PixelColor::CYAN,
+    PixelColor::YELLOW,
+    PixelColor::MAGENTA,
+    PixelColor::CYAN,
+    PixelColor::MAGENTA,
+    PixelColor::CYAN,
+    PixelColor::YELLOW,
+    PixelColor::MAGENTA,
+    PixelColor::CYAN,
+    PixelColor::BLACK,
 ];
 
 fn mandelbrot(c: Complex<f64>, max_iter: u32) -> u32 {
@@ -49,6 +64,16 @@ fn mandelbrot_fast(c: Complex<f64>, max_iter: u32) -> u32 {
     let mut n = 0;
     while (z.re + z.im) <= 4.0 && n < max_iter {
         z = z * z + c;
+        n += 1;
+    }
+    n
+}
+
+fn mandelbrot_cos(c: Complex<f64>, max_iter: u32) -> u32 {
+    let mut z = Complex::new(0.0, 0.0);
+    let mut n = 0;
+    while (z.re + z.im) <= 4.0 && n < max_iter {
+        z = z.cos() + Complex::new(1.0, 0.0) / c;
         n += 1;
     }
     n
