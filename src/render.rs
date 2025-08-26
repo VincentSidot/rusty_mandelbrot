@@ -29,7 +29,6 @@ pub fn render(mut universe: MandelbrotUniverse, width: u32, height: u32) -> Resu
     let mut last_mouse_pos = (0, 0);
 
     let mut is_left_mouse_button_pressed = false;
-    let mut is_right_mouse_button_pressed = false;
 
     event_loop.run(move |event, _, control_flow| {
         // Handle events
@@ -93,8 +92,7 @@ pub fn render(mut universe: MandelbrotUniverse, width: u32, height: u32) -> Resu
                         is_left_mouse_button_pressed = state == winit::event::ElementState::Pressed;
                     }
                     winit::event::MouseButton::Right => {
-                        is_right_mouse_button_pressed =
-                            state == winit::event::ElementState::Pressed;
+                        // Right mouse button handling could be added here if needed
                     }
                     _ => {}
                 },
