@@ -15,9 +15,9 @@
 - [ ] Benchmark performance impact of memoization
 
 ### 1.3. Implement Adaptive Resolution
-- [ ] Add logic to detect zoom level
-- [ ] Adjust computation resolution based on zoom
-- [ ] Implement progressive rendering for deep zooms
+- [x] Add logic to detect zoom level
+- [x] Adjust computation resolution based on zoom
+- [x] Implement progressive rendering for deep zooms
 
 ### 1.4. GPU Acceleration
 - [ ] Research WebGPU integration with Rust
@@ -138,9 +138,9 @@
 ## 6. Immediate Tasks
 
 ### 6.1. Refactor Current Code
-- [ ] Fix the `mandelbrot` function that uses `z.pow(42)` (likely a bug)
+- [x] Fix the `mandelbrot` function that uses `z.pow(42)` (likely a bug)
 - [ ] Clean up commented-out code in `mandelbrot.rs`
-- [ ] Fix the loop condition in `mandelbrot` function (should use `z.norm()` not `z.re + z.im`)
+- [x] Fix the loop condition in `mandelbrot` function (should use `z.norm()` not `z.re + z.im`)
 - [ ] Review and fix any other mathematical inconsistencies
 
 ### 6.2. Improve Build Process

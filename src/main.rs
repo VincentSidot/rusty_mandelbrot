@@ -20,8 +20,8 @@ const COLORS: &[PixelColor] = &[PixelColor::WHITE, PixelColor::MAGENTA, PixelCol
 fn mandelbrot(c: Complex<f64>, max_iter: u32) -> u32 {
     let mut z = Complex::new(0.0, 0.0);
     let mut n = 0;
-    while z.norm() <= 2.0 && n < max_iter {
-        z = z.pow(42) + c;
+    while z.norm() <= 4.0 && n < max_iter {
+        z = z * z + c;
         n += 1;
     }
     n
@@ -42,7 +42,7 @@ fn mandelbrot_fast(c: Complex<f64>, max_iter: u32) -> u32 {
     // Compute
     let mut z = Complex::new(0.0, 0.0);
     let mut n = 0;
-    while (z.re + z.im) <= 4.0 && n < max_iter {
+    while z.norm() <= 4.0 && n < max_iter {
         z = z * z + c;
         n += 1;
     }
@@ -52,7 +52,7 @@ fn mandelbrot_fast(c: Complex<f64>, max_iter: u32) -> u32 {
 fn mandelbrot_cos(c: Complex<f64>, max_iter: u32) -> u32 {
     let mut z = Complex::new(0.0, 0.0);
     let mut n = 0;
-    while (z.re + z.im) <= 4.0 && n < max_iter {
+    while z.norm() <= 4.0 && n < max_iter {
         z = z.cos() + Complex::new(1.0, 0.0) / c;
         n += 1;
     }
@@ -81,6 +81,12 @@ fn main() -> Result<(), Error> {
     );
     // Set cache size to 50000 entries
     universe.set_memo_max_size(50000);
+    // Enable adaptive resolution
+    universe.set_adaptive_resolution(true);
+    
+    // Test adaptive resolution
+    universe.test_adaptive_resolution();
+    
     universe.compute();
 
     // Display memoization statistics

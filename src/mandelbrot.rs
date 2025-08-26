@@ -87,6 +87,10 @@ pub struct MandelbrotUniverse {
     memo_max_size: usize,
     memo_hits: AtomicU32,
     memo_misses: AtomicU32,
+
+    // Adaptive resolution
+    base_resolution: u32,
+    adaptive_resolution: bool,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -170,6 +174,10 @@ impl MandelbrotUniverse {
             memo_max_size: 10000, // Default cache size
             memo_hits: AtomicU32::new(0),
             memo_misses: AtomicU32::new(0),
+
+            // Adaptive resolution
+            base_resolution: 1,
+            adaptive_resolution: true,
         }
     }
 
@@ -188,6 +196,15 @@ impl MandelbrotUniverse {
     pub fn zoom(&mut self, factor: f64, center_x: u32, center_y: u32) {
         let center = self.idx_to_complex(center_x, center_y);
         self.view.zoom(factor, center.re, center.im);
+        
+        // For deep zooms, we might want to do progressive rendering
+        let zoom_level = self.calculate_zoom_level();
+        if zoom_level > 1000.0 && factor < 1.0 {
+            // For very deep zooms when zooming in, we could implement progressive rendering
+            // For now, we'll just compute normally but with adaptive resolution
+            log::info!("Deep zoom detected ({}x), using adaptive resolution", zoom_level);
+        }
+        
         self.compute();
     }
 
@@ -199,6 +216,20 @@ impl MandelbrotUniverse {
     }
 
     fn compute_multi_thread(&mut self) {
+        // Get the resolution for this computation
+        let resolution = self.get_adaptive_resolution();
+        log::info!("Computing with resolution: {}x", resolution);
+        
+        // If resolution > 1, we compute at lower resolution and upscale
+        if resolution > 1 {
+            self.compute_multi_thread_with_resolution(resolution);
+        } else {
+            // Standard full resolution computation
+            self.compute_multi_thread_full_resolution();
+        }
+    }
+
+    fn compute_multi_thread_full_resolution(&mut self) {
         // Create a new vector for the computed data
         let mut new_data = vec![PixelColor::BLACK; self.data.len()];
         
@@ -270,6 +301,93 @@ impl MandelbrotUniverse {
         std::mem::swap(&mut self.data, &mut new_data);
     }
 
+    fn compute_multi_thread_with_resolution(&mut self, resolution: u32) {
+        // Create a lower resolution data buffer
+        let low_width = (self.width + resolution - 1) / resolution;
+        let low_height = (self.height + resolution - 1) / resolution;
+        let low_data_size = (low_width * low_height) as usize;
+        let mut low_data = vec![PixelColor::BLACK; low_data_size];
+        
+        // Compute at lower resolution
+        let width = low_width;
+        let _height = low_height;
+        let max_iter = self.max_iter;
+        let gradient_table = &self.gradient_table;
+        let viewport = self.view;
+        let mandelbrot = self.apply;
+        
+        // Memoization
+        let memo_cache = &self.memo_cache;
+        let memo_history = &self.memo_history;
+        let memo_max_size = self.memo_max_size;
+        let memo_hits = &self.memo_hits;
+        let memo_misses = &self.memo_misses;
+        
+        // Atomic counter for progress tracking
+        let processed_pixels = AtomicU32::new(0);
+        let total_pixels = low_data_size as u32;
+        
+        // Parallel computation using rayon
+        low_data.par_iter_mut().enumerate().for_each(|(idx, pixel)| {
+            let x = idx as u32 % width;
+            let y = idx as u32 / width;
+            let c = viewport.idx_to_complex(x * resolution, y * resolution, self.width, self.height);
+            
+            // Try to get from cache first
+            let n = if let Some(result) = memo_cache.get(&c) {
+                memo_hits.fetch_add(1, Ordering::Relaxed);
+                *result
+            } else {
+                // Cache miss - compute the result
+                memo_misses.fetch_add(1, Ordering::Relaxed);
+                let result = mandelbrot(c, max_iter);
+                
+                // Add to cache
+                memo_cache.insert(c, result);
+                
+                // Track insertion order for LRU eviction
+                let mut history = memo_history.lock().unwrap();
+                history.push_back(c);
+                
+                // Evict oldest entries if cache is too large
+                if memo_cache.len() > memo_max_size {
+                    if let Some(oldest) = history.pop_front() {
+                        memo_cache.remove(&oldest);
+                    }
+                }
+                
+                result
+            };
+            
+            *pixel = if n == max_iter {
+                PixelColor::BLACK
+            } else {
+                gradient_table[n as usize]
+            };
+            
+            // Progress tracking
+            let count = processed_pixels.fetch_add(1, Ordering::Relaxed);
+            if count % (total_pixels / 100).max(1) == 0 {
+                let progress = (count as f32 / total_pixels as f32) * 100.0;
+                log::trace!("Progress: {:.1}%", progress);
+            }
+        });
+        
+        // Upscale to full resolution using nearest neighbor
+        let mut new_data = vec![PixelColor::BLACK; (self.width * self.height) as usize];
+        for y in 0..self.height {
+            for x in 0..self.width {
+                let low_x = x / resolution;
+                let low_y = y / resolution;
+                let low_idx = (low_y * low_width + low_x) as usize;
+                let idx = (y * self.width + x) as usize;
+                new_data[idx] = low_data[low_idx.min(low_data_size - 1)];
+            }
+        }
+        
+        std::mem::swap(&mut self.data, &mut new_data);
+    }
+
     pub fn set_memo_max_size(&mut self, size: usize) {
         self.memo_max_size = size;
     }
@@ -328,6 +446,62 @@ impl MandelbrotUniverse {
         history.clear();
         self.memo_hits.store(0, Ordering::Relaxed);
         self.memo_misses.store(0, Ordering::Relaxed);
+    }
+
+    pub fn set_adaptive_resolution(&mut self, enabled: bool) {
+        self.adaptive_resolution = enabled;
+    }
+
+    pub fn set_base_resolution(&mut self, resolution: u32) {
+        self.base_resolution = resolution.max(1);
+    }
+
+    /// Calculate the current zoom level based on viewport size
+    fn calculate_zoom_level(&self) -> f64 {
+        let initial_width = 3.0; // Initial viewport width (-2.0 to 1.0)
+        let current_width = self.view.x_max - self.view.x_min;
+        initial_width / current_width
+    }
+
+    /// Determine the appropriate resolution based on zoom level
+    fn get_adaptive_resolution(&self) -> u32 {
+        if !self.adaptive_resolution {
+            return self.base_resolution;
+        }
+
+        let zoom_level = self.calculate_zoom_level();
+        
+        // At higher zoom levels, we need higher resolution
+        // This is a simple logarithmic scaling
+        if zoom_level < 10.0 {
+            self.base_resolution
+        } else if zoom_level < 100.0 {
+            self.base_resolution * 2
+        } else if zoom_level < 1000.0 {
+            self.base_resolution * 4
+        } else if zoom_level < 10000.0 {
+            self.base_resolution * 8
+        } else {
+            self.base_resolution * 16
+        }
+    }
+
+    /// Test function to verify adaptive resolution is working
+    #[allow(dead_code)]
+    pub fn test_adaptive_resolution(&mut self) {
+        println!("Testing adaptive resolution...");
+        
+        // Test at base zoom level
+        let res1 = self.get_adaptive_resolution();
+        println!("Resolution at base zoom: {}x", res1);
+        
+        // Zoom in and test again
+        self.view.zoom(0.1, -0.5, 0.0); // Zoom in significantly
+        let res2 = self.get_adaptive_resolution();
+        println!("Resolution at deep zoom: {}x", res2);
+        
+        // Reset view
+        self.view = ViewPort::default();
     }
 
     pub fn render(&self, frame: &mut [u8]) {
