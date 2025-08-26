@@ -1,7 +1,9 @@
 use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::complex::Complex;
+use dashmap::DashMap;
 use rayon::prelude::*;
+use std::collections::VecDeque;
 
 #[derive(Debug, Clone, Copy)]
 pub struct PixelColor {
@@ -78,6 +80,13 @@ pub struct MandelbrotUniverse {
 
     // Mandelbrot data
     data: Vec<PixelColor>,
+
+    // Memoization
+    memo_cache: DashMap<Complex<f64>, u32>,
+    memo_history: std::sync::Mutex<VecDeque<Complex<f64>>>,
+    memo_max_size: usize,
+    memo_hits: AtomicU32,
+    memo_misses: AtomicU32,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -154,6 +163,13 @@ impl MandelbrotUniverse {
             max_iter,
 
             data: vec![PixelColor::BLACK; (width * height) as usize],
+
+            // Memoization initialization
+            memo_cache: DashMap::new(),
+            memo_history: std::sync::Mutex::new(VecDeque::new()),
+            memo_max_size: 10000, // Default cache size
+            memo_hits: AtomicU32::new(0),
+            memo_misses: AtomicU32::new(0),
         }
     }
 
@@ -194,6 +210,13 @@ impl MandelbrotUniverse {
         let viewport = self.view;
         let mandelbrot = self.apply;
         
+        // Memoization
+        let memo_cache = &self.memo_cache;
+        let memo_history = &self.memo_history;
+        let memo_max_size = self.memo_max_size;
+        let memo_hits = &self.memo_hits;
+        let memo_misses = &self.memo_misses;
+        
         // Atomic counter for progress tracking
         let processed_pixels = AtomicU32::new(0);
         let total_pixels = self.data.len() as u32;
@@ -203,7 +226,33 @@ impl MandelbrotUniverse {
             let x = idx as u32 % width;
             let y = idx as u32 / width;
             let c = viewport.idx_to_complex(x, y, width, height);
-            let n = mandelbrot(c, max_iter);
+            
+            // Try to get from cache first
+            let n = if let Some(result) = memo_cache.get(&c) {
+                memo_hits.fetch_add(1, Ordering::Relaxed);
+                *result
+            } else {
+                // Cache miss - compute the result
+                memo_misses.fetch_add(1, Ordering::Relaxed);
+                let result = mandelbrot(c, max_iter);
+                
+                // Add to cache
+                memo_cache.insert(c, result);
+                
+                // Track insertion order for LRU eviction
+                let mut history = memo_history.lock().unwrap();
+                history.push_back(c);
+                
+                // Evict oldest entries if cache is too large
+                if memo_cache.len() > memo_max_size {
+                    if let Some(oldest) = history.pop_front() {
+                        memo_cache.remove(&oldest);
+                    }
+                }
+                
+                result
+            };
+            
             *pixel = if n == max_iter {
                 PixelColor::BLACK
             } else {
@@ -221,12 +270,64 @@ impl MandelbrotUniverse {
         std::mem::swap(&mut self.data, &mut new_data);
     }
 
+    pub fn set_memo_max_size(&mut self, size: usize) {
+        self.memo_max_size = size;
+    }
+
+    fn memoized_apply(&self, c: Complex<f64>, max_iter: u32) -> u32 {
+        // Try to get from cache first
+        if let Some(result) = self.memo_cache.get(&c) {
+            self.memo_hits.fetch_add(1, Ordering::Relaxed);
+            return *result;
+        }
+
+        // Cache miss - compute the result
+        self.memo_misses.fetch_add(1, Ordering::Relaxed);
+        let result = (self.apply)(c, max_iter);
+
+        // Add to cache
+        self.memo_cache.insert(c, result);
+        
+        // Track insertion order for LRU eviction
+        let mut history = self.memo_history.lock().unwrap();
+        history.push_back(c);
+        
+        // Evict oldest entries if cache is too large
+        if self.memo_cache.len() > self.memo_max_size {
+            if let Some(oldest) = history.pop_front() {
+                self.memo_cache.remove(&oldest);
+            }
+        }
+        
+        result
+    }
+
     pub fn compute(&mut self) {
         let t1 = std::time::Instant::now();
         // Always use multi-threading with rayon, which automatically manages the thread pool
         self.compute_multi_thread();
         let t2 = std::time::Instant::now();
         println!("Compute time: {:?} with {} threads", t2 - t1, rayon::current_num_threads());
+    }
+
+    pub fn memo_stats(&self) -> (usize, u32, u32, f64) {
+        let hits = self.memo_hits.load(Ordering::Relaxed);
+        let misses = self.memo_misses.load(Ordering::Relaxed);
+        let total = hits + misses;
+        let hit_rate = if total > 0 {
+            (hits as f64 / total as f64) * 100.0
+        } else {
+            0.0
+        };
+        (self.memo_cache.len(), hits, misses, hit_rate)
+    }
+
+    pub fn clear_memo_cache(&self) {
+        self.memo_cache.clear();
+        let mut history = self.memo_history.lock().unwrap();
+        history.clear();
+        self.memo_hits.store(0, Ordering::Relaxed);
+        self.memo_misses.store(0, Ordering::Relaxed);
     }
 
     pub fn render(&self, frame: &mut [u8]) {

@@ -9,9 +9,9 @@
 - [x] Consider using `rayon` crate for easier parallelization
 
 ### 1.2. Optimize Memoization
-- [ ] Replace HashMap with a thread-safe alternative (e.g., `dashmap`)
-- [ ] Implement size-limited cache with LRU eviction policy
-- [ ] Add cache statistics tracking (hit rate, etc.)
+- [x] Replace HashMap with a thread-safe alternative (e.g., `dashmap`)
+- [x] Implement size-limited cache with LRU eviction policy
+- [x] Add cache statistics tracking (hit rate, etc.)
 - [ ] Benchmark performance impact of memoization
 
 ### 1.3. Implement Adaptive Resolution

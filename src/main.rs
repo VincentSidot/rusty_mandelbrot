@@ -79,7 +79,14 @@ fn main() -> Result<(), Error> {
         MAX_ITER,
         mandelbrot_fast,
     );
+    // Set cache size to 50000 entries
+    universe.set_memo_max_size(50000);
     universe.compute();
+
+    // Display memoization statistics
+    let (cache_size, hits, misses, hit_rate) = universe.memo_stats();
+    println!("Memoization stats: cache_size={}, hits={}, misses={}, hit_rate={:.2}%", 
+             cache_size, hits, misses, hit_rate);
 
     println!("Running on {} threads", threads);
     println!("Press ESC to exit");
