@@ -149,7 +149,15 @@ impl MandelbrotUniverse {
         max_iter: u32,
         function: fn(Complex<f64>, u32) -> u32,
     ) -> Self {
+        log::debug!("Initializing MandelbrotUniverse with dimensions {}x{}", width, height);
+        log::debug!("Max iterations: {}", max_iter);
+        log::debug!("Color palette size: {}", colors.len());
+        
+        let start_time = std::time::Instant::now();
         let gradient_table = PixelColor::compute_gradient_table(max_iter, colors);
+        let duration = start_time.elapsed();
+        
+        log::debug!("Computed gradient table with {} entries in {:?}", gradient_table.len(), duration);
 
         Self {
             width,
@@ -177,9 +185,15 @@ impl MandelbrotUniverse {
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
+        log::debug!("Resizing universe from {}x{} to {}x{}", self.width, self.height, width, height);
+        let start_time = std::time::Instant::now();
+        
         self.width = width;
         self.height = height;
         self.data = vec![PixelColor::BLACK; (width * height) as usize];
+        
+        let duration = start_time.elapsed();
+        log::debug!("Resize completed in {:?}, new data buffer size: {}", duration, self.data.len());
     }
 
     fn idx_to_complex(&self, x: u32, y: u32) -> Complex<f64> {
@@ -189,6 +203,9 @@ impl MandelbrotUniverse {
     
 
     pub fn zoom(&mut self, factor: f64, center_x: u32, center_y: u32) {
+        log::debug!("Zooming by factor {} at center ({}, {})", factor, center_x, center_y);
+        let start_time = std::time::Instant::now();
+        
         let center = self.idx_to_complex(center_x, center_y);
         self.view.zoom(factor, center.re, center.im);
         
@@ -201,13 +218,22 @@ impl MandelbrotUniverse {
         }
         
         self.compute();
+        
+        let duration = start_time.elapsed();
+        log::debug!("Zoom operation completed in {:?}", duration);
     }
 
     pub fn translate(&mut self, dx: f64, dy: f64) {
+        log::debug!("Translating by ({}, {})", dx, dy);
+        let start_time = std::time::Instant::now();
+        
         let dx = dx * (self.view.x_max - self.view.x_min) / self.width as f64;
         let dy = dy * (self.view.y_max - self.view.y_min) / self.height as f64;
         self.view.translate(dx, dy);
         self.compute();
+        
+        let duration = start_time.elapsed();
+        log::debug!("Translation completed in {:?}", duration);
     }
 
     fn compute_multi_thread(&mut self) {
@@ -384,15 +410,17 @@ impl MandelbrotUniverse {
     }
 
     pub fn set_memo_max_size(&mut self, size: usize) {
+        log::debug!("Setting memoization cache max size to {}", size);
         self.memo_max_size = size;
     }
 
     pub fn compute(&mut self) {
+        log::info!("Starting Mandelbrot computation");
         let t1 = std::time::Instant::now();
         // Always use multi-threading with rayon, which automatically manages the thread pool
         self.compute_multi_thread();
         let t2 = std::time::Instant::now();
-        println!("Compute time: {:?} with {} threads", t2 - t1, rayon::current_num_threads());
+        log::info!("Compute time: {:?} with {} threads", t2 - t1, rayon::current_num_threads());
     }
 
     pub fn memo_stats(&self) -> (usize, u32, u32, f64) {
@@ -408,18 +436,26 @@ impl MandelbrotUniverse {
     }
 
     pub fn clear_memo_cache(&self) {
+        log::debug!("Clearing memoization cache");
+        let start_time = std::time::Instant::now();
+        
         self.memo_cache.clear();
         let mut history = self.memo_history.lock().unwrap();
         history.clear();
         self.memo_hits.store(0, Ordering::Relaxed);
         self.memo_misses.store(0, Ordering::Relaxed);
+        
+        let duration = start_time.elapsed();
+        log::debug!("Memoization cache cleared in {:?}", duration);
     }
 
     pub fn set_adaptive_resolution(&mut self, enabled: bool) {
+        log::debug!("Setting adaptive resolution to {}", enabled);
         self.adaptive_resolution = enabled;
     }
 
     pub fn set_base_resolution(&mut self, resolution: u32) {
+        log::debug!("Setting base resolution to {}", resolution);
         self.base_resolution = resolution.max(1);
     }
 
@@ -427,20 +463,24 @@ impl MandelbrotUniverse {
     fn calculate_zoom_level(&self) -> f64 {
         let initial_width = 3.0; // Initial viewport width (-2.0 to 1.0)
         let current_width = self.view.x_max - self.view.x_min;
-        initial_width / current_width
+        let zoom_level = initial_width / current_width;
+        log::trace!("Calculated zoom level: {} (initial_width: {}, current_width: {})", zoom_level, initial_width, current_width);
+        zoom_level
     }
 
     /// Determine the appropriate resolution based on zoom level
     fn get_adaptive_resolution(&self) -> u32 {
         if !self.adaptive_resolution {
+            log::trace!("Adaptive resolution disabled, returning base resolution: {}", self.base_resolution);
             return self.base_resolution;
         }
 
         let zoom_level = self.calculate_zoom_level();
+        log::trace!("Current zoom level: {}", zoom_level);
         
         // At higher zoom levels, we need higher resolution
         // This is a simple logarithmic scaling
-        if zoom_level < 10.0 {
+        let resolution = if zoom_level < 10.0 {
             self.base_resolution
         } else if zoom_level < 100.0 {
             self.base_resolution * 2
@@ -450,7 +490,10 @@ impl MandelbrotUniverse {
             self.base_resolution * 8
         } else {
             self.base_resolution * 16
-        }
+        };
+        
+        log::trace!("Calculated adaptive resolution: {}", resolution);
+        resolution
     }
 
     pub fn render(&self, frame: &mut [u8]) {
