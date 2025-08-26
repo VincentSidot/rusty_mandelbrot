@@ -49,16 +49,6 @@ fn mandelbrot_fast(c: Complex<f64>, max_iter: u32) -> u32 {
     n
 }
 
-fn mandelbrot_cos(c: Complex<f64>, max_iter: u32) -> u32 {
-    let mut z = Complex::new(0.0, 0.0);
-    let mut n = 0;
-    while z.norm() <= 4.0 && n < max_iter {
-        z = z.cos() + Complex::new(1.0, 0.0) / c;
-        n += 1;
-    }
-    n
-}
-
 fn main() -> Result<(), Error> {
     logger::init(log::LevelFilter::Trace).expect("Failed to initialize logger");
 
@@ -72,27 +62,20 @@ fn main() -> Result<(), Error> {
         .build_global()
         .expect("Failed to configure rayon thread pool");
 
-    let mut universe = MandelbrotUniverse::new(
-        WIDTH,
-        HEIGHT,
-        COLORS,
-        MAX_ITER,
-        mandelbrot_fast,
-    );
+    let mut universe = MandelbrotUniverse::new(WIDTH, HEIGHT, COLORS, MAX_ITER, mandelbrot_fast);
     // Set cache size to 50000 entries
     universe.set_memo_max_size(50000);
     // Enable adaptive resolution
     universe.set_adaptive_resolution(true);
     
-    // Test adaptive resolution
-    universe.test_adaptive_resolution();
-    
     universe.compute();
 
     // Display memoization statistics
     let (cache_size, hits, misses, hit_rate) = universe.memo_stats();
-    println!("Memoization stats: cache_size={}, hits={}, misses={}, hit_rate={:.2}%", 
-             cache_size, hits, misses, hit_rate);
+    println!(
+        "Memoization stats: cache_size={}, hits={}, misses={}, hit_rate={:.2}%",
+        cache_size, hits, misses, hit_rate
+    );
 
     println!("Running on {} threads", threads);
     println!("Press ESC to exit");

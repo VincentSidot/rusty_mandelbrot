@@ -392,34 +392,6 @@ impl MandelbrotUniverse {
         self.memo_max_size = size;
     }
 
-    fn memoized_apply(&self, c: Complex<f64>, max_iter: u32) -> u32 {
-        // Try to get from cache first
-        if let Some(result) = self.memo_cache.get(&c) {
-            self.memo_hits.fetch_add(1, Ordering::Relaxed);
-            return *result;
-        }
-
-        // Cache miss - compute the result
-        self.memo_misses.fetch_add(1, Ordering::Relaxed);
-        let result = (self.apply)(c, max_iter);
-
-        // Add to cache
-        self.memo_cache.insert(c, result);
-        
-        // Track insertion order for LRU eviction
-        let mut history = self.memo_history.lock().unwrap();
-        history.push_back(c);
-        
-        // Evict oldest entries if cache is too large
-        if self.memo_cache.len() > self.memo_max_size {
-            if let Some(oldest) = history.pop_front() {
-                self.memo_cache.remove(&oldest);
-            }
-        }
-        
-        result
-    }
-
     pub fn compute(&mut self) {
         let t1 = std::time::Instant::now();
         // Always use multi-threading with rayon, which automatically manages the thread pool
@@ -484,24 +456,6 @@ impl MandelbrotUniverse {
         } else {
             self.base_resolution * 16
         }
-    }
-
-    /// Test function to verify adaptive resolution is working
-    #[allow(dead_code)]
-    pub fn test_adaptive_resolution(&mut self) {
-        println!("Testing adaptive resolution...");
-        
-        // Test at base zoom level
-        let res1 = self.get_adaptive_resolution();
-        println!("Resolution at base zoom: {}x", res1);
-        
-        // Zoom in and test again
-        self.view.zoom(0.1, -0.5, 0.0); // Zoom in significantly
-        let res2 = self.get_adaptive_resolution();
-        println!("Resolution at deep zoom: {}x", res2);
-        
-        // Reset view
-        self.view = ViewPort::default();
     }
 
     pub fn render(&self, frame: &mut [u8]) {
