@@ -42,17 +42,53 @@ Some are out of date, I need to try updating and check for compatibility.
 
 ## Building and Running
 
-To build the project, use the following command:
+### Using Cargo Directly
+
+To build the project in debug mode, use the following command:
 
 ```sh
 cargo build
 ```
 
-To run the project, use the following command:
+To build the project in release mode (optimized), use the following command:
+
+```sh
+cargo build --release
+```
+
+To run the project in debug mode, use the following command:
 
 ```sh
 cargo run
 ```
+
+To run the project in release mode, use the following command:
+
+```sh
+cargo run --release
+```
+
+### Using the Build Script
+
+The project includes a build script (`build.sh`) that simplifies building with different profiles:
+
+```sh
+# Build with debug profile (default)
+./build.sh
+
+# Build with release profile
+./build.sh -p release
+
+# Display help
+./build.sh -h
+```
+
+### Build Profiles
+
+The project defines two build profiles:
+
+1. **Debug Profile**: Default settings for development with debug symbols and no optimizations
+2. **Release Profile**: Optimized settings for production with maximum optimizations and stripped symbols
 
 ## Mandelbrot Implementations
 

@@ -149,11 +149,11 @@ where users zoom into the same areas multiple times.
 - [x] Fix the `mandelbrot` function that uses `z.pow(42)` (likely a bug)
 - [x] Clean up commented-out code in `mandelbrot.rs`
 - [x] Fix the loop condition in `mandelbrot` function (should use `z.norm()` not `z.re + z.im`)
-- [ ] Review and fix any other mathematical inconsistencies
+- [x] Review and fix any other mathematical inconsistencies
 
 ### 6.2. Improve Build Process
-- [ ] Add build profiles (debug, release)
-- [ ] Optimize compilation flags
+- [x] Add build profiles (debug, release)
+- [x] Optimize compilation flags
 - [ ] Add build scripts for different platforms
 - [ ] Document build process
 
