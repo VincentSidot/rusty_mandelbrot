@@ -147,7 +147,7 @@ where users zoom into the same areas multiple times.
 
 ### 6.1. Refactor Current Code
 - [x] Fix the `mandelbrot` function that uses `z.pow(42)` (likely a bug)
-- [ ] Clean up commented-out code in `mandelbrot.rs`
+- [x] Clean up commented-out code in `mandelbrot.rs`
 - [x] Fix the loop condition in `mandelbrot` function (should use `z.norm()` not `z.re + z.im`)
 - [ ] Review and fix any other mathematical inconsistencies
 

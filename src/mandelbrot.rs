@@ -70,15 +70,12 @@ pub struct MandelbrotUniverse {
     width: u32,
     height: u32,
 
-    // Mandelbrot universe
     view: ViewPort,
     max_iter: u32,
     gradient_table: Vec<PixelColor>,
 
-    // Mandelbrot function
     apply: fn(Complex<f64>, u32) -> u32,
 
-    // Mandelbrot data
     data: Vec<PixelColor>,
 
     // Memoization
@@ -152,8 +149,6 @@ impl MandelbrotUniverse {
         max_iter: u32,
         function: fn(Complex<f64>, u32) -> u32,
     ) -> Self {
-        // Compute gradient table
-
         let gradient_table = PixelColor::compute_gradient_table(max_iter, colors);
 
         Self {
@@ -168,7 +163,7 @@ impl MandelbrotUniverse {
 
             data: vec![PixelColor::BLACK; (width * height) as usize],
 
-            // Memoization initialization
+            // Memoization
             memo_cache: DashMap::new(),
             memo_history: std::sync::Mutex::new(VecDeque::new()),
             memo_max_size: 10000, // Default cache size
