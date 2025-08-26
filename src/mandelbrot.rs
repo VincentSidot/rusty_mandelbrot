@@ -1,6 +1,7 @@
-use std::thread;
+use std::sync::atomic::{AtomicU32, Ordering};
 
 use crate::complex::Complex;
+use rayon::prelude::*;
 
 #[derive(Debug, Clone, Copy)]
 pub struct PixelColor {
@@ -66,7 +67,6 @@ impl PixelColor {
 pub struct MandelbrotUniverse {
     width: u32,
     height: u32,
-    threads: usize,
 
     // Mandelbrot universe
     view: ViewPort,
@@ -135,7 +135,6 @@ impl MandelbrotUniverse {
     pub fn new(
         width: u32,
         height: u32,
-        threads: usize,
         colors: &[PixelColor],
         max_iter: u32,
         function: fn(Complex<f64>, u32) -> u32,
@@ -143,12 +142,10 @@ impl MandelbrotUniverse {
         // Compute gradient table
 
         let gradient_table = PixelColor::compute_gradient_table(max_iter, colors);
-        let threads = threads.max(1); // At least 1 thread
 
         Self {
             width,
             height,
-            threads,
 
             gradient_table,
             apply: function,
@@ -164,37 +161,13 @@ impl MandelbrotUniverse {
         self.width = width;
         self.height = height;
         self.data = vec![PixelColor::BLACK; (width * height) as usize];
-        self.compute();
-    }
-
-    fn rev_convert_idx(&self, idx: usize) -> (u32, u32) {
-        let x = idx as u32 % self.width;
-        let y = idx as u32 / self.width;
-
-        (x, y)
     }
 
     fn idx_to_complex(&self, x: u32, y: u32) -> Complex<f64> {
         self.view.idx_to_complex(x, y, self.width, self.height)
     }
 
-    fn compute_single_thread(&mut self) {
-        for idx in 0..self.data.len() {
-            let (x, y) = self.rev_convert_idx(idx);
-            let c = self.idx_to_complex(x, y);
-            let n = (self.apply)(c, self.max_iter);
-
-            let color = if n == self.max_iter {
-                PixelColor::BLACK
-            } else {
-                self.gradient_table[n as usize]
-                // let brightness = 255 - n * 255 / self.max_iter;
-                // PixelColor::new(brightness as u8, brightness as u8, brightness as u8, 255)
-            };
-
-            self.data[idx] = color;
-        }
-    }
+    
 
     pub fn zoom(&mut self, factor: f64, center_x: u32, center_y: u32) {
         let center = self.idx_to_complex(center_x, center_y);
@@ -210,70 +183,50 @@ impl MandelbrotUniverse {
     }
 
     fn compute_multi_thread(&mut self) {
-        let concurrent_threads = self.threads;
-        let pixels_per_thread = self.data.len() / concurrent_threads;
-
+        // Create a new vector for the computed data
         let mut new_data = vec![PixelColor::BLACK; self.data.len()];
-
-        let mut pixels = {
-            let mut rep = Vec::new();
-            let mut pixels = new_data.as_mut_slice();
-            for _ in 0..concurrent_threads {
-                let (start, end) = pixels.split_at_mut(pixels_per_thread as usize);
-                rep.push(start);
-                pixels = end;
-            }
-            rep
-        };
-
+        
+        // Use rayon's parallel iterator to compute all pixels in parallel
         let width = self.width;
         let height = self.height;
         let max_iter = self.max_iter;
-
-        let gradient_table = self.gradient_table.clone();
-        let viewport = self.view.clone();
-
-        // Create a scope for the threads to run in
-        thread::scope(|s| {
-            for (i, cells) in pixels.iter_mut().enumerate() {
-                let base_index = i * pixels_per_thread as usize;
-                let gradient_table = gradient_table.clone();
-                let viewport = viewport.clone();
-
-                let mandelbrot = self.apply;
-
-                s.spawn(move || {
-                    for (i, pixel) in cells.iter_mut().enumerate() {
-                        let (x, y) = (
-                            (base_index + i) as u32 % width,
-                            (base_index + i) as u32 / width,
-                        );
-                        let c = viewport.idx_to_complex(x, y, width, height);
-                        let n = mandelbrot(c, max_iter);
-                        *pixel = gradient_table[n as usize];
-                    }
-                });
+        let gradient_table = &self.gradient_table;
+        let viewport = self.view;
+        let mandelbrot = self.apply;
+        
+        // Atomic counter for progress tracking
+        let processed_pixels = AtomicU32::new(0);
+        let total_pixels = self.data.len() as u32;
+        
+        // Parallel computation using rayon
+        new_data.par_iter_mut().enumerate().for_each(|(idx, pixel)| {
+            let x = idx as u32 % width;
+            let y = idx as u32 / width;
+            let c = viewport.idx_to_complex(x, y, width, height);
+            let n = mandelbrot(c, max_iter);
+            *pixel = if n == max_iter {
+                PixelColor::BLACK
+            } else {
+                gradient_table[n as usize]
+            };
+            
+            // Progress tracking
+            let count = processed_pixels.fetch_add(1, Ordering::Relaxed);
+            if count % (total_pixels / 100).max(1) == 0 {
+                let progress = (count as f32 / total_pixels as f32) * 100.0;
+                log::trace!("Progress: {:.1}%", progress);
             }
         });
-
-        // let max_iter = new_data.iter().max().unwrap();
-        // let gradient = PixelColor::compute_gradient_table(
-        //     *max_iter,
-        //     vec![PixelColor::BLUE, PixelColor::YELLOW],
-        // );
-        // self.data = new_data.iter().map(|&n| gradient[n as usize]).collect();
+        
         std::mem::swap(&mut self.data, &mut new_data);
     }
 
     pub fn compute(&mut self) {
         let t1 = std::time::Instant::now();
-        if self.threads == 1 {
-            self.compute_single_thread();
-        } else {
-            self.compute_multi_thread();
-        }
+        // Always use multi-threading with rayon, which automatically manages the thread pool
+        self.compute_multi_thread();
         let t2 = std::time::Instant::now();
-        println!("Compute time: {:?}", t2 - t1);
+        println!("Compute time: {:?} with {} threads", t2 - t1, rayon::current_num_threads());
     }
 
     pub fn render(&self, frame: &mut [u8]) {

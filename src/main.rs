@@ -7,41 +7,21 @@ use std::thread;
 
 use complex::Complex;
 use pixels::Error;
+use rayon::ThreadPoolBuilder;
 
 use mandelbrot::{MandelbrotUniverse, PixelColor};
 
 const WIDTH: u32 = 800;
 const HEIGHT: u32 = 600;
-const MAX_ITER: u32 = 1024;
+const MAX_ITER: u32 = 25;
 
-const COLORS: &[PixelColor] = &[
-    PixelColor::MAGENTA,
-    PixelColor::CYAN,
-    PixelColor::YELLOW,
-    PixelColor::MAGENTA,
-    PixelColor::CYAN,
-    PixelColor::MAGENTA,
-    PixelColor::YELLOW,
-    PixelColor::CYAN,
-    PixelColor::MAGENTA,
-    PixelColor::YELLOW,
-    PixelColor::CYAN,
-    PixelColor::YELLOW,
-    PixelColor::MAGENTA,
-    PixelColor::CYAN,
-    PixelColor::MAGENTA,
-    PixelColor::CYAN,
-    PixelColor::YELLOW,
-    PixelColor::MAGENTA,
-    PixelColor::CYAN,
-    PixelColor::BLACK,
-];
+const COLORS: &[PixelColor] = &[PixelColor::WHITE, PixelColor::MAGENTA, PixelColor::BLACK];
 
 fn mandelbrot(c: Complex<f64>, max_iter: u32) -> u32 {
     let mut z = Complex::new(0.0, 0.0);
     let mut n = 0;
-    while (z.re + z.im) <= 4.0 && n < max_iter {
-        z = z * z + c;
+    while z.norm() <= 2.0 && n < max_iter {
+        z = z.pow(42) + c;
         n += 1;
     }
     n
@@ -86,10 +66,15 @@ fn main() -> Result<(), Error> {
         .map(|t| t.get())
         .unwrap_or(1);
 
+    // Configure rayon thread pool
+    ThreadPoolBuilder::new()
+        .num_threads(threads)
+        .build_global()
+        .expect("Failed to configure rayon thread pool");
+
     let mut universe = MandelbrotUniverse::new(
         WIDTH,
         HEIGHT,
-        (2.5 * threads as f32) as usize,
         COLORS,
         MAX_ITER,
         mandelbrot_fast,

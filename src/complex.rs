@@ -42,6 +42,27 @@ impl<T> Complex<T> {
             im: -self.im,
         }
     }
+
+    pub fn pow(&self, n: u32) -> Complex<T>
+    where
+        T: Copy
+            + std::ops::Mul<T, Output = T>
+            + std::ops::Add<T, Output = T>
+            + std::ops::Sub<T, Output = T>
+            + std::ops::Neg<Output = T>,
+    {
+        if n == 0 {
+            panic!("n must be greater than 0");
+        }
+        if n == 1 {
+            return *self;
+        } else if n % 2 == 0 {
+            let half = self.pow(n / 2);
+            return half * half;
+        } else {
+            return *self * self.pow(n - 1);
+        }
+    }
 }
 
 impl Complex<f64> {
@@ -156,3 +177,20 @@ pub mod op {
         }
     }
 }
+
+pub type Complexf64 = Complex<f64>;
+
+impl std::hash::Hash for Complexf64 {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.re.to_bits().hash(state);
+        self.im.to_bits().hash(state);
+    }
+}
+
+impl std::cmp::PartialEq for Complexf64 {
+    fn eq(&self, other: &Self) -> bool {
+        (self.re - other.re).abs() < f64::EPSILON && (self.im - other.im).abs() < f64::EPSILON
+    }
+}
+
+impl std::cmp::Eq for Complexf64 {}
