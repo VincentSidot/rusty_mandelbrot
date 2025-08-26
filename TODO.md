@@ -12,7 +12,15 @@
 - [x] Replace HashMap with a thread-safe alternative (e.g., `dashmap`)
 - [x] Implement size-limited cache with LRU eviction policy
 - [x] Add cache statistics tracking (hit rate, etc.)
-- [ ] Benchmark performance impact of memoization
+- [x] Benchmark performance impact of memoization
+
+Benchmark Results:
+- 100x100x25: Without memoization 27.121 ms, With memoization 28.574 ms (memoization overhead)
+- 400x300x50: Without memoization 334.81 ms, With memoization 367.63 ms (memoization overhead)
+
+Note: The current implementation shows memoization adds overhead for these test cases due to cache management costs. 
+Memoization would be more beneficial for repeated computations of the same points or for interactive applications 
+where users zoom into the same areas multiple times.
 
 ### 1.3. Implement Adaptive Resolution
 - [x] Add logic to detect zoom level
