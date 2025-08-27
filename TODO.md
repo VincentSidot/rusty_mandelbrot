@@ -32,6 +32,7 @@ where users zoom into the same areas multiple times.
 - [x] Implement Mandelbrot computation on GPU
 - [x] Set up data transfer between CPU and GPU
 - [x] Benchmark performance gains
+- [x] Benchmark performance gains
 
 ## 2. User Interface Improvements
 

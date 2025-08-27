@@ -92,10 +92,10 @@ pub struct MandelbrotUniverse {
 
 #[derive(Debug, Clone, Copy)]
 pub struct ViewPort {
-    x_min: f64,
-    x_max: f64,
-    y_min: f64,
-    y_max: f64,
+    pub x_min: f64,
+    pub x_max: f64,
+    pub y_min: f64,
+    pub y_max: f64,
 }
 
 impl ViewPort {
@@ -182,6 +182,31 @@ impl MandelbrotUniverse {
             base_resolution: 1,
             adaptive_resolution: true,
         }
+    }
+    
+    /// Get the viewport
+    pub fn view(&self) -> ViewPort {
+        self.view
+    }
+    
+    /// Get a mutable reference to the data
+    pub fn data_mut(&mut self) -> &mut [PixelColor] {
+        &mut self.data
+    }
+    
+    /// Get the maximum iterations
+    pub fn max_iter(&self) -> u32 {
+        self.max_iter
+    }
+    
+    /// Get the width
+    pub fn width(&self) -> u32 {
+        self.width
+    }
+    
+    /// Get the height
+    pub fn height(&self) -> u32 {
+        self.height
     }
 
     pub fn resize(&mut self, width: u32, height: u32) {
