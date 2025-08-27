@@ -8,24 +8,24 @@ set TARGET=
 
 REM Parse command line arguments
 :parse
-if "%1"==" goto build
-if "%1"=="-h" goto help
-if "%1"=="--help" goto help
-if "%1"=="-p" goto set_profile
-if "%1"=="--profile" goto set_profile
-if "%1"=="-t" goto set_target
-if "%1"=="--target" goto set_target
-echo Unknown option: %1
-goto help
+if "%1%"=="" goto build
+if "%1%"=="-h" goto help
+if "%1%"=="--help" goto help
+if "%1%"=="-p" goto set_profile
+if "%1%"=="--profile" goto set_profile
+if "%1%"=="-t" goto set_target
+if "%1%"=="--target" goto set_target
+shift
+goto parse
 
 :set_profile
-set PROFILE=%2
+set PROFILE=%2%
 shift
 shift
 goto parse
 
 :set_target
-set TARGET=--target %2
+set TARGET=--target %2%
 shift
 shift
 goto parse
@@ -54,7 +54,7 @@ if not "%PROFILE%"=="debug" if not "%PROFILE%"=="release" (
 
 REM Build the project
 echo Building Mandelbrot project with profile: %PROFILE%
-if "%TARGET%"==" (
+if "%TARGET%"=="" (
     echo Target: native
 ) else (
     echo Target: %TARGET%
@@ -62,8 +62,8 @@ if "%TARGET%"==" (
 
 if "%PROFILE%"=="release" (
     cargo build --release %TARGET%
-    echo Build successful! Binary located at: target\\release\\mandelbrot.exe
+    echo Build successful! Binary located at: target\release\mandelbrot.exe
 ) else (
     cargo build %TARGET%
-    echo Build successful! Binary located at: target\\debug\\mandelbrot.exe
+    echo Build successful! Binary located at: target\debug\mandelbrot.exe
 )

@@ -154,8 +154,8 @@ where users zoom into the same areas multiple times.
 ### 6.2. Improve Build Process
 - [x] Add build profiles (debug, release)
 - [x] Optimize compilation flags
-- [ ] Add build scripts for different platforms
-- [ ] Document build process
+- [x] Add build scripts for different platforms
+- [x] Document build process
 
 ### 6.3. Add Logging
 - [x] Add more detailed logging throughout the application

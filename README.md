@@ -68,9 +68,11 @@ To run the project in release mode, use the following command:
 cargo run --release
 ```
 
-### Using the Build Script
+### Using the Build Scripts
 
-The project includes a build script (`build.sh`) that simplifies building with different profiles:
+The project includes platform-specific build scripts that simplify building with different profiles:
+
+#### Linux/macOS
 
 ```sh
 # Build with debug profile (default)
@@ -83,12 +85,58 @@ The project includes a build script (`build.sh`) that simplifies building with d
 ./build.sh -h
 ```
 
+#### Windows
+
+```cmd
+# Build with debug profile (default)
+build.bat
+
+# Build with release profile
+build.bat -p release
+
+# Display help
+build.bat -h
+```
+
+#### macOS (Alternative)
+
+```sh
+# Build with debug profile (default)
+./build.mac.sh
+
+# Build with release profile
+./build.mac.sh -p release
+
+# Display help
+./build.mac.sh -h
+```
+
 ### Build Profiles
 
 The project defines two build profiles:
 
 1. **Debug Profile**: Default settings for development with debug symbols and no optimizations
 2. **Release Profile**: Optimized settings for production with maximum optimizations and stripped symbols
+
+### Cross-Platform Building
+
+To build for different target platforms, use the `--target` option with the build scripts:
+
+```sh
+# Build for Windows on Linux/macOS
+./build.sh --target x86_64-pc-windows-gnu
+
+# Build for macOS on Linux
+./build.sh --target x86_64-apple-darwin
+
+# Build for Linux on macOS
+./build.mac.sh --target x86_64-unknown-linux-gnu
+```
+
+Note: Cross-compilation requires installing the appropriate target toolchains. For example:
+```sh
+rustup target add x86_64-pc-windows-gnu
+```
 
 ## Mandelbrot Implementations
 
