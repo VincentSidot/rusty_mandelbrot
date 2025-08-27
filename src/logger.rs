@@ -61,8 +61,10 @@ impl log::Log for SimpleLogger {
 
         if self.enabled(record.metadata()) {
             let message = format!(
-                "[{}] {} - {}",
+                "[{}] {}:{}: {} - {}",
                 record.level(),
+                record.file().unwrap_or("unkown"),
+                record.line().unwrap_or(0),
                 chrono::Utc::now().format("%Y-%m-%d %H:%M:%S%.3f"),
                 record.args()
             );
