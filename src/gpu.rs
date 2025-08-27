@@ -1,10 +1,11 @@
 //! GPU-accelerated Mandelbrot computation using wgpu
 
 use std::borrow::Cow;
-use pixels::wgpu::{Adapter, Device, Instance, Queue};
-use pixels::wgpu::{BufferDescriptor, BufferUsages, CommandEncoderDescriptor, ComputePassDescriptor};
-use pixels::wgpu::{ComputePipeline, BindGroupLayout};
-use pixels::wgpu::{util::DeviceExt, PowerPreference};
+use wgpu::{
+    util::DeviceExt, Adapter, BindGroupLayout, BufferDescriptor, BufferUsages,
+    CommandEncoderDescriptor, ComputePassDescriptor, ComputePipeline, Device, Instance,
+    PowerPreference, Queue,
+};
 
 use crate::mandelbrot::ViewPort;
 
@@ -36,52 +37,55 @@ impl GpuContext {
     /// Create a new GPU context
     pub async fn new() -> Result<Self, Box<dyn std::error::Error>> {
         // Create instance
-        let instance = Instance::new(pixels::wgpu::InstanceDescriptor::default());
-        
+        let instance = Instance::new(wgpu::InstanceDescriptor::default());
+
         // Get adapter
-        let adapter = instance.request_adapter(
-            &pixels::wgpu::RequestAdapterOptions {
+        let adapter = instance
+            .request_adapter(&wgpu::RequestAdapterOptions {
                 power_preference: PowerPreference::HighPerformance,
                 compatible_surface: None,
                 force_fallback_adapter: false,
-            }
-        ).await.ok_or("No suitable GPU adapter found")?;
-        
+            })
+            .await
+            .ok_or("No suitable GPU adapter found")?;
+
         // Get device and queue
-        let (device, queue) = adapter.request_device(
-            &pixels::wgpu::DeviceDescriptor {
-                features: pixels::wgpu::Features::empty(),
-                limits: pixels::wgpu::Limits::default(),
-                label: None,
-            },
-            None,
-        ).await?;
-        
+        let (device, queue) = adapter
+            .request_device(
+                &wgpu::DeviceDescriptor {
+                    features: wgpu::Features::empty(),
+                    limits: wgpu::Limits::default(),
+                    label: None,
+                },
+                None,
+            )
+            .await?;
+
         // Load shader
-        let shader_module = device.create_shader_module(pixels::wgpu::ShaderModuleDescriptor {
+        let shader_module = device.create_shader_module(wgpu::ShaderModuleDescriptor {
             label: Some("Mandelbrot Compute Shader"),
-            source: pixels::wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("mandelbrot.wgsl"))),
+            source: wgpu::ShaderSource::Wgsl(Cow::Borrowed(include_str!("mandelbrot.wgsl"))),
         });
-        
+
         // Create bind group layout
-        let bind_group_layout = device.create_bind_group_layout(&pixels::wgpu::BindGroupLayoutDescriptor {
+        let bind_group_layout = device.create_bind_group_layout(&wgpu::BindGroupLayoutDescriptor {
             label: Some("Mandelbrot Bind Group Layout"),
             entries: &[
-                pixels::wgpu::BindGroupLayoutEntry {
+                wgpu::BindGroupLayoutEntry {
                     binding: 0,
-                    visibility: pixels::wgpu::ShaderStages::COMPUTE,
-                    ty: pixels::wgpu::BindingType::Buffer {
-                        ty: pixels::wgpu::BufferBindingType::Uniform,
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Uniform,
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
                     count: None,
                 },
-                pixels::wgpu::BindGroupLayoutEntry {
+                wgpu::BindGroupLayoutEntry {
                     binding: 1,
-                    visibility: pixels::wgpu::ShaderStages::COMPUTE,
-                    ty: pixels::wgpu::BindingType::Buffer {
-                        ty: pixels::wgpu::BufferBindingType::Storage { read_only: false },
+                    visibility: wgpu::ShaderStages::COMPUTE,
+                    ty: wgpu::BindingType::Buffer {
+                        ty: wgpu::BufferBindingType::Storage { read_only: false },
                         has_dynamic_offset: false,
                         min_binding_size: None,
                     },
@@ -89,22 +93,22 @@ impl GpuContext {
                 },
             ],
         });
-        
+
         // Create pipeline layout
-        let pipeline_layout = device.create_pipeline_layout(&pixels::wgpu::PipelineLayoutDescriptor {
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
             label: Some("Mandelbrot Pipeline Layout"),
             bind_group_layouts: &[&bind_group_layout],
             push_constant_ranges: &[],
         });
-        
+
         // Create compute pipeline
-        let compute_pipeline = device.create_compute_pipeline(&pixels::wgpu::ComputePipelineDescriptor {
+        let compute_pipeline = device.create_compute_pipeline(&wgpu::ComputePipelineDescriptor {
             label: Some("Mandelbrot Compute Pipeline"),
             layout: Some(&pipeline_layout),
             module: &shader_module,
             entry_point: "main",
         });
-        
+
         Ok(Self {
             _instance: instance,
             _adapter: adapter,
@@ -114,7 +118,7 @@ impl GpuContext {
             bind_group_layout,
         })
     }
-    
+
     /// Compute Mandelbrot set using GPU
     pub async fn compute_mandelbrot(
         &self,
@@ -134,23 +138,26 @@ impl GpuContext {
             y_max: viewport.y_max as f32,
             _padding: [0; 1],
         };
-        
+
         // Create uniform buffer
-        let uniform_buffer = self.device.create_buffer_init(&pixels::wgpu::util::BufferInitDescriptor {
-            label: Some("Uniform Buffer"),
-            contents: bytemuck::cast_slice(&[uniforms]),
-            usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
-        });
-        
+        let uniform_buffer = self
+            .device
+            .create_buffer_init(&wgpu::util::BufferInitDescriptor {
+                label: Some("Uniform Buffer"),
+                contents: bytemuck::cast_slice(&[uniforms]),
+                usage: BufferUsages::UNIFORM | BufferUsages::COPY_DST,
+            });
+
         // Create output buffer
-        let output_size = (width * height * std::mem::size_of::<u32>() as u32) as pixels::wgpu::BufferAddress;
+        let output_size =
+            (width * height * std::mem::size_of::<u32>() as u32) as wgpu::BufferAddress;
         let output_buffer = self.device.create_buffer(&BufferDescriptor {
             label: Some("Output Buffer"),
             size: output_size,
             usage: BufferUsages::STORAGE | BufferUsages::COPY_SRC,
             mapped_at_creation: false,
         });
-        
+
         // Create staging buffer for reading results
         let staging_buffer = self.device.create_buffer(&BufferDescriptor {
             label: Some("Staging Buffer"),
@@ -158,23 +165,23 @@ impl GpuContext {
             usage: BufferUsages::MAP_READ | BufferUsages::COPY_DST,
             mapped_at_creation: false,
         });
-        
+
         // Create bind group
-        let bind_group = self.device.create_bind_group(&pixels::wgpu::BindGroupDescriptor {
+        let bind_group = self.device.create_bind_group(&wgpu::BindGroupDescriptor {
             label: Some("Mandelbrot Bind Group"),
             layout: &self.bind_group_layout,
             entries: &[
-                pixels::wgpu::BindGroupEntry {
+                wgpu::BindGroupEntry {
                     binding: 0,
-                    resource: pixels::wgpu::BindingResource::Buffer(pixels::wgpu::BufferBinding {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &uniform_buffer,
                         offset: 0,
                         size: None,
                     }),
                 },
-                pixels::wgpu::BindGroupEntry {
+                wgpu::BindGroupEntry {
                     binding: 1,
-                    resource: pixels::wgpu::BindingResource::Buffer(pixels::wgpu::BufferBinding {
+                    resource: wgpu::BindingResource::Buffer(wgpu::BufferBinding {
                         buffer: &output_buffer,
                         offset: 0,
                         size: None,
@@ -182,51 +189,53 @@ impl GpuContext {
                 },
             ],
         });
-        
+
         // Create command encoder
-        let mut encoder = self.device.create_command_encoder(&CommandEncoderDescriptor {
-            label: Some("Mandelbrot Command Encoder"),
-        });
-        
+        let mut encoder = self
+            .device
+            .create_command_encoder(&CommandEncoderDescriptor {
+                label: Some("Mandelbrot Command Encoder"),
+            });
+
         // Create compute pass
         {
             let mut compute_pass = encoder.begin_compute_pass(&ComputePassDescriptor {
                 label: Some("Mandelbrot Compute Pass"),
             });
-            
+
             compute_pass.set_pipeline(&self.compute_pipeline);
             compute_pass.set_bind_group(0, &bind_group, &[]);
-            
+
             // Dispatch compute work
-            let work_groups_x = (width + 15) / 16;  // Round up to nearest multiple of 16
+            let work_groups_x = (width + 15) / 16; // Round up to nearest multiple of 16
             let work_groups_y = (height + 15) / 16; // Round up to nearest multiple of 16
             compute_pass.dispatch_workgroups(work_groups_x, work_groups_y, 1);
         }
-        
+
         // Copy output buffer to staging buffer
         encoder.copy_buffer_to_buffer(&output_buffer, 0, &staging_buffer, 0, output_size);
-        
+
         // Submit commands
         self.queue.submit(Some(encoder.finish()));
-        
+
         // Read results
         let buffer_slice = staging_buffer.slice(..);
         let (sender, receiver) = futures::channel::oneshot::channel();
-        buffer_slice.map_async(pixels::wgpu::MapMode::Read, move |result| {
+        buffer_slice.map_async(wgpu::MapMode::Read, move |result| {
             let _ = sender.send(result);
         });
-        
+
         // Poll until mapping is complete
-        self.device.poll(pixels::wgpu::Maintain::Wait);
+        self.device.poll(wgpu::Maintain::Wait);
         let result = receiver.await?;
         result?;
-        
+
         // Extract data
         let data = buffer_slice.get_mapped_range();
         let result: Vec<u32> = bytemuck::cast_slice(&data).to_vec();
         drop(data); // Release mapping
         staging_buffer.unmap();
-        
+
         Ok(result)
     }
 }
@@ -240,7 +249,9 @@ pub fn compute_mandelbrot_gpu(
 ) -> Result<Vec<u32>, Box<dyn std::error::Error>> {
     futures::executor::block_on(async {
         let gpu_context = GpuContext::new().await?;
-        gpu_context.compute_mandelbrot(width, height, max_iter, viewport).await
+        gpu_context
+            .compute_mandelbrot(width, height, max_iter, viewport)
+            .await
     })
 }
 
@@ -253,6 +264,8 @@ impl ViewPort {
         viewport: ViewPort,
     ) -> Result<Vec<u32>, Box<dyn std::error::Error>> {
         let gpu_context = GpuContext::new().await?;
-        gpu_context.compute_mandelbrot(width, height, max_iter, viewport).await
+        gpu_context
+            .compute_mandelbrot(width, height, max_iter, viewport)
+            .await
     }
 }

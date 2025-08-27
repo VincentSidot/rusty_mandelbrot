@@ -16,11 +16,8 @@ winit = "0.28"
 chrono = "0.4"
 bytemuck = { version = "1.18", features = ["derive"] }
 futures = "0.3"
-wgpu = { version = "0.16", optional = true }
+wgpu = { version = "0.16" }
 
-[features]
-default = []
-gpu = ["wgpu"]
 
 [dev-dependencies]
 criterion = "0.5"
