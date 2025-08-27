@@ -14,6 +14,13 @@ rand = "0.8.5"
 rayon = "1.7"
 winit = "0.28"
 chrono = "0.4"
+bytemuck = { version = "1.18", features = ["derive"] }
+futures = "0.3"
+wgpu = { version = "0.17", optional = true }
+
+[features]
+default = []
+gpu = ["wgpu"]
 
 [dev-dependencies]
 criterion = "0.5"

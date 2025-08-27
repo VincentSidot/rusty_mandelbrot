@@ -28,10 +28,10 @@ where users zoom into the same areas multiple times.
 - [x] Implement progressive rendering for deep zooms
 
 ### 1.4. GPU Acceleration
-- [ ] Research WebGPU integration with Rust
-- [ ] Implement Mandelbrot computation on GPU
-- [ ] Set up data transfer between CPU and GPU
-- [ ] Benchmark performance gains
+- [x] Research WebGPU integration with Rust
+- [x] Implement Mandelbrot computation on GPU
+- [x] Set up data transfer between CPU and GPU
+- [x] Benchmark performance gains
 
 ## 2. User Interface Improvements
 
